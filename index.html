@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centrosome Tools</title>
+<meta name="description" content="Update the firmware and edit the patches of a Centrosome sampler from your browser.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="brand-sub">CENTROSOME SAMPLER</span>
+    <h1>CENTROSOME</h1>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" id="tab-update" class="tab on" aria-selected="true" data-tab="update">UPDATE</button>
+    <button role="tab" id="tab-patches" class="tab" aria-selected="false" data-tab="patches">PATCHES</button>
+  </nav>
+  <div id="status" class="status" role="status" aria-live="polite"><i class="dot"></i><span>NOT CONNECTED</span></div>
+</header>
+
+<div id="banner" class="banner" hidden></div>
+
+<main>
+  <!-- UPDATE ------------------------------------------------------------ -->
+  <section id="view-update" class="view" aria-labelledby="tab-update">
+    <div class="grid">
+      <article class="card">
+        <h2><b class="tag">1</b> CONNECTION</h2>
+        <dl class="rows">
+          <div><dt>STATUS</dt><dd id="c-status">NOT CONNECTED</dd></div>
+          <div><dt>TRANSPORT</dt><dd id="c-transport">&ndash;</dd></div>
+          <div><dt>LINK</dt><dd>USB SERIAL</dd></div>
+        </dl>
+        <div class="btns">
+          <button id="btn-connect" class="btn">CONNECT USB</button>
+          <button id="btn-demo" class="btn ghost">DEMO DEVICE</button>
+          <button id="btn-disconnect" class="btn ghost" hidden>DISCONNECT</button>
+        </div>
+        <p class="note" id="connect-note">Plug the Centrosome in with USB, then press CONNECT USB and choose its port. Chrome or Edge on a computer is needed.</p>
+      </article>
+
+      <article class="card">
+        <h2><b class="tag">2</b> DEVICE</h2>
+        <dl class="rows">
+          <div><dt>FIRMWARE</dt><dd id="d-fw">&ndash;</dd></div>
+          <div><dt>PATCH FORMAT</dt><dd id="d-psv">&ndash;</dd></div>
+          <div><dt>BUILD</dt><dd id="d-build">&ndash;</dd></div>
+          <div><dt>RUNNING SLOT</dt><dd id="d-slot">&ndash;</dd></div>
+          <div><dt>CARD FREE</dt><dd id="d-free">&ndash;</dd></div>
+        </dl>
+      </article>
+
+      <article class="card">
+        <h2><b class="tag">3</b> PACKAGE</h2>
+        <dl class="rows">
+          <div><dt>FILE</dt><dd id="p-file">NONE</dd></div>
+          <div><dt>SIZE</dt><dd id="p-size">&ndash;</dd></div>
+          <div><dt>VERSION</dt><dd id="m-ver">&ndash;</dd></div>
+          <div><dt>SHA-256</dt><dd id="p-hash" class="mono">&ndash;</dd></div>
+        </dl>
+        <div class="btns">
+          <label class="btn ghost file">CHOOSE PACKAGE<input id="p-input" type="file" accept=".cpkg,.csupd,.bin,.tar,.gz"></label>
+          <label class="btn ghost file">CHOOSE SIGNED MANIFEST<input id="m-input" type="file" accept=".json,application/json"></label>
+        </div>
+        <p class="note">The unit installs only packages signed with Jake's key, and checks that itself. The manifest (version, sha256, signature) is made offline; this page only passes it on.</p>
+      </article>
+
+      <article class="card wide">
+        <h2><b class="tag">4</b> UPDATE</h2>
+        <div class="btns">
+          <button id="btn-update" class="btn solid" disabled>UPDATE</button>
+          <span id="u-hint" class="hint">Connect a unit and choose a package first.</span>
+        </div>
+        <div class="bar" aria-hidden="true"><div id="u-bar"></div></div>
+        <div id="u-pct" class="pct">0%</div>
+        <pre id="log" class="log" aria-live="polite"></pre>
+      </article>
+    </div>
+  </section>
+
+  <!-- PATCHES ----------------------------------------------------------- -->
+  <section id="view-patches" class="view" hidden aria-labelledby="tab-patches">
+    <div class="editor">
+      <div class="params" id="params"></div>
+      <aside class="side">
+        <div class="tools">
+          <button id="pt-import" class="icon" title="Import patch file">IMPORT</button>
+          <button id="pt-export" class="icon" title="Export this patch to a file">EXPORT</button>
+          <button id="pt-reset"  class="icon" title="Reset this patch to factory values">RESET</button>
+          <button id="pt-send"   class="icon solid" title="Write this patch to the unit" disabled>SEND</button>
+          <input id="pt-file" type="file" accept=".json,application/json" hidden>
+        </div>
+        <ol id="plist" class="plist"></ol>
+        <p class="note small">Edits are kept in this browser until you send them to a unit. Patch 16 (LIVE) is filled by recording.</p>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>Chrome or Edge on desktop only. Web Serial is not available in Safari, Firefox or on phones.</span>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

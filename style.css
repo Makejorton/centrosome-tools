@@ -1,0 +1,87 @@
+/* Centrosome Tools. Tokens follow UI_UX_STYLE_GUIDE_UNIFIED.md (dark panels, #404040 borders,
+   sparse cyan accent). Layout and tone take cues from a flat black, all-caps, label/value
+   configurator; no third-party branding or assets are used. Status never relies on red vs green. */
+:root{
+  --bg:#000; --panel:#1e1e1e; --panel2:#2a2a2a; --line:#404040; --faint:#333;
+  --text:#fff; --dim:rgba(255,255,255,.62); --accent:#35d7ff; --warn:#ffd23f;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.35 var(--sans);letter-spacing:.02em}
+button,input,select{font:inherit;color:inherit}
+[hidden]{display:none!important}
+
+.top{display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap;padding:24px 16px 16px;max-width:1280px;margin:0 auto}
+.brand{display:flex;flex-direction:column;gap:2px;margin-right:auto}
+.brand-sub{font-size:11px;letter-spacing:.3em;color:var(--dim)}
+h1{margin:0;font-size:clamp(34px,7vw,64px);line-height:.9;font-weight:900;letter-spacing:.04em}
+.tabs{display:flex;gap:4px}
+.tab{background:var(--panel);border:0;padding:10px 18px;cursor:pointer;color:var(--dim);letter-spacing:.12em}
+.tab.on{background:var(--text);color:#000}
+.tab:focus-visible,.btn:focus-visible,.icon:focus-visible,.plist li:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.status{display:flex;align-items:center;gap:10px;background:var(--panel2);padding:10px 18px;letter-spacing:.3em;font-size:13px;min-width:220px;justify-content:center}
+.dot{width:9px;height:9px;border-radius:50%;border:2px solid var(--dim);display:inline-block}
+.status.on .dot{background:var(--accent);border-color:var(--accent)}
+.status.demo .dot{border-radius:0;background:var(--warn);border-color:var(--warn)}
+
+.banner{max-width:1248px;margin:0 auto 12px;padding:12px 16px;border:1px solid var(--warn);color:var(--warn)}
+main{max-width:1280px;margin:0 auto;padding:0 16px 32px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--faint);padding:14px 16px}
+.card.wide{grid-column:1/-1}
+h2{margin:0 0 12px;font-size:15px;font-weight:400;letter-spacing:.14em;display:flex;align-items:center;gap:10px}
+.tag{background:var(--text);color:#000;display:inline-flex;min-width:26px;height:26px;align-items:center;justify-content:center;font-weight:400}
+.rows{margin:0}
+.rows>div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--faint)}
+.rows dt{color:var(--dim)}
+.rows dd{margin:0;text-align:right;word-break:break-all}
+.mono{font-family:var(--mono);font-size:12px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.btn,.icon{background:var(--panel2);border:1px solid var(--line);padding:10px 16px;cursor:pointer;letter-spacing:.12em;min-height:44px}
+.btn:hover,.icon:hover{border-color:var(--text)}
+.btn.solid,.icon.solid{background:var(--text);color:#000;border-color:var(--text)}
+.btn.ghost{background:transparent}
+.btn[disabled],.icon[disabled]{opacity:.35;cursor:not-allowed}
+.file{display:inline-flex;align-items:center}
+.file input{position:absolute;opacity:0;width:1px;height:1px}
+.note{color:var(--dim);font-size:13px;margin:12px 0 0}
+.note.small{font-size:12px}
+.hint{color:var(--dim);font-size:14px}
+.bar{margin-top:16px;height:22px;border:1px solid var(--line);padding:3px}
+#u-bar{height:100%;width:0;background:repeating-linear-gradient(90deg,var(--accent) 0 10px,transparent 10px 13px)}
+.pct{margin-top:6px;font-family:var(--mono);color:var(--dim)}
+.log{margin:12px 0 0;min-height:120px;max-height:260px;overflow:auto;background:#0a0a0a;border:1px solid var(--faint);padding:10px;font:12px/1.5 var(--mono);white-space:pre-wrap}
+
+/* patch editor */
+.editor{display:grid;grid-template-columns:1fr 280px;gap:16px;align-items:start}
+.params{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.pgroup{background:var(--panel);border:1px solid var(--faint);padding:10px 12px}
+.pgroup h3{margin:0 0 6px;font-size:13px;font-weight:400;letter-spacing:.16em;color:var(--dim);display:flex;gap:8px;align-items:center}
+.pgroup h3 .tag{min-width:22px;height:22px;font-size:13px}
+.prow{display:grid;grid-template-columns:1fr 112px;align-items:center;gap:8px;padding:3px 0}
+.prow label{color:var(--text)}
+.prow.chg label::after{content:" \25AA";color:var(--accent)}
+.prow input[type=number],.prow select{width:100%;background:var(--bg);border:1px solid var(--line);padding:6px 8px;min-height:36px;text-align:right}
+.prow select{text-align:left}
+.prow input[type=checkbox]{justify-self:end;width:22px;height:22px;accent-color:#fff}
+.prow .unit{color:var(--dim);font-size:11px}
+.side{position:sticky;top:12px}
+.tools{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
+.icon{padding:8px 10px;font-size:12px;min-height:40px}
+.plist{list-style:none;margin:0;padding:0;background:var(--panel2)}
+.plist li{padding:9px 12px;cursor:pointer;font-size:18px;border-bottom:1px solid #000}
+.plist li:hover{background:#3a3a3a}
+.plist li[aria-selected=true]{background:var(--text);color:#000}
+.plist li.edited::after{content:" \25AA";color:var(--accent)}
+.plist li[aria-selected=true].edited::after{color:#000}
+.foot{max-width:1280px;margin:0 auto;padding:16px;color:var(--dim);font-size:12px}
+
+@media (max-width:820px){
+  .editor{grid-template-columns:1fr}
+  .side{position:static;order:-1}
+  .status{min-width:0;flex:1}
+}
+@media (prefers-reduced-motion:no-preference){.bar #u-bar{transition:width .2s linear}}
