@@ -25,7 +25,8 @@
   /* PROVISIONAL protocol (device side not built; the unit's author will adopt it with these changes): one JSON
      object per line. Requests {"id":N,"cmd":...}, replies {"id":N,"ok":true,...} or {"id":N,"ok":false,"error":"..."}.
        hello        -> {fw, build, slot, freeMb, imageVersion, patchStateVersion, fields:[PatchState keys it supports]}
-       update.begin {size, sha256, version, sig}   sig = Ed25519 over the manifest, made offline; the unit refuses unsigned
+       update.begin {size, sha256, version, release, keyId, allowDowngrade, sig}   sig = Ed25519 over the manifest, made
+                    offline; the unit refuses unsigned, untrusted-key, and older-release packages (downgrade protection)
        update.chunk {seq, crc32, data(base64)}     -> {next}: the offset the unit wants next, so a dropped cable resumes
        update.end   -> {state:"verifying"}; then poll `status` -> {state: verifying|healthy|rolled_back|failed, detail}
        patch.put    {index, patchStateVersion, values}   rejected by the unit if the version differs
@@ -87,7 +88,7 @@
       log('Connected: ' + t.name);
       var h = await t.request('hello'); hello = h;
       deviceFields = h.fields ? new Set(h.fields) : null; renderParams();
-      $('d-fw').textContent = h.fw; $('d-psv').textContent = h.patchStateVersion != null ? 'v' + h.patchStateVersion : '–'; $('d-build').textContent = h.build; $('d-slot').textContent = h.slot;
+      $('d-fw').textContent = h.fw + (h.release != null ? ' (release ' + h.release + ')' : ''); $('d-psv').textContent = h.patchStateVersion != null ? 'v' + h.patchStateVersion : '–'; $('d-build').textContent = h.build; $('d-slot').textContent = h.slot;
       $('d-free').textContent = h.freeMb != null ? Math.round(h.freeMb / 1024) + ' GB' : '–';
       setMode(t instanceof DemoTransport ? 'demo' : 'on', t instanceof DemoTransport ? 'DEMO DEVICE' : 'CONNECTED');
     } catch (e) {
@@ -124,8 +125,9 @@
     var f = e.target.files[0]; if (!f) return;
     try {
       var m = JSON.parse(await f.text());
-      if (typeof m.sha256 !== 'string' || typeof m.version !== 'string' || typeof m.sig !== 'string') throw new Error('needs sha256, version and sig');
-      man = m; $('m-ver').textContent = m.version; log('Manifest loaded: version ' + m.version + '. The unit checks the signature itself.');
+      if (typeof m.sha256 !== 'string' || typeof m.version !== 'string' || typeof m.sig !== 'string' || typeof m.keyId !== 'string' || typeof m.release !== 'number')
+        throw new Error('needs version, release, sha256, keyId and sig (make it with make-package.py)');
+      man = m; $('m-ver').textContent = m.version + ' (release ' + m.release + (m.allowDowngrade ? ', downgrade allowed' : '') + ')'; log('Manifest loaded: version ' + m.version + '. The unit checks the signature itself.');
     } catch (x) { man = null; $('m-ver').textContent = '–'; log('Manifest not usable: ' + x.message); }
     refreshUpdate();
   });
@@ -136,7 +138,8 @@
     var btn = $('btn-update'); btn.disabled = true; progress(0);
     try {
       log('Starting update…');
-      await transport.request('update.begin', { size: pkg.bytes.length, sha256: pkg.sha, version: man.version, sig: man.sig });
+      await transport.request('update.begin', { size: pkg.bytes.length, sha256: pkg.sha, version: man.version, release: man.release,
+                                                 keyId: man.keyId, allowDowngrade: !!man.allowDowngrade, sig: man.sig });
       var CH = 4096, n = Math.ceil(pkg.bytes.length / CH), i = 0, guard = 0;
       while (i < n) {                         // the unit says which chunk it wants next, so a resume or a repeat is its call
         var part = pkg.bytes.subarray(i * CH, (i + 1) * CH);
