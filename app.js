@@ -27,7 +27,7 @@
        hello        -> {fw, build, slot, freeMb, imageVersion, patchStateVersion, fields:[PatchState keys it supports]}
        update.begin {size, sha256, version, sig}   sig = Ed25519 over the manifest, made offline; the unit refuses unsigned
        update.chunk {seq, crc32, data(base64)}     -> {next}: the offset the unit wants next, so a dropped cable resumes
-       update.end
+       update.end   -> {state:"verifying"}; then poll `status` -> {state: verifying|healthy|rolled_back|failed, detail}
        patch.put    {index, patchStateVersion, values}   rejected by the unit if the version differs
      The serial baud rate is a placeholder (a USB CDC-ACM gadget ignores it): never estimate time from it. */
   function SerialTransport() { this.name = 'USB SERIAL'; this.port = null; this.nextId = 1; this.pending = {}; }
@@ -146,9 +146,21 @@
         i = r.next; progress((i / n) * 95);
       }
       log('Sent. The unit is checking the signature…');
-      await transport.request('update.end');
-      progress(100); log('Update finished. The unit will restart itself.');
-    } catch (e) { log('UPDATE FAILED: ' + e.message + '\nThe unit keeps running its previous firmware.'); }
+      var end = await transport.request('update.end');
+      progress(97);
+      if (end.state === 'verifying') {          // the unit swapped the firmware and is restarting; wait for its verdict
+        log('Installed. The unit is restarting and checking the new firmware\u2026');
+        var verdict = null;
+        for (var k = 0; k < 90 && !verdict; k++) {
+          await sleep(2000);
+          try { var st = await transport.request('status'); if (st.state && st.state !== 'verifying') verdict = st; } catch (x) { /* the port may drop for a moment during the restart */ }
+        }
+        if (!verdict) throw new Error('no answer from the unit after the restart; check it before using it');
+        if (verdict.state !== 'healthy') throw new Error('the unit went back to its previous firmware (' + verdict.state + (verdict.detail ? ': ' + verdict.detail : '') + ')');
+        log('New firmware confirmed: ' + (verdict.detail || 'healthy') + '.');
+      }
+      progress(100); log('Update finished.');
+    } catch (e) { log('UPDATE FAILED: ' + e.message); }
     refreshUpdate();
   });
   $('btn-connect').addEventListener('click', function () { connect(new SerialTransport()); });
