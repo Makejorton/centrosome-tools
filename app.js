@@ -29,7 +29,9 @@
                     offline; the unit refuses unsigned, untrusted-key, and older-release packages (downgrade protection)
        update.chunk {seq, crc32, data(base64)}     -> {next}: the offset the unit wants next, so a dropped cable resumes
        update.end   -> {state:"verifying"}; then poll `status` -> {state: verifying|healthy|rolled_back|failed, detail}
-       patch.put    {index, patchStateVersion, values}   rejected by the unit if the version differs
+       patch.get    {index} -> {values}   what the unit has saved for that patch
+       patch.put    {index, patchStateVersion, values} -> {state:"applying"}; poll status for patch_saved / patch_failed.
+                    Only changed fields are sent; the unit stops the firmware for a few seconds to write the file.
      The serial baud rate is a placeholder (a USB CDC-ACM gadget ignores it): never estimate time from it. */
   function SerialTransport() { this.name = 'USB SERIAL'; this.port = null; this.nextId = 1; this.pending = {}; }
   SerialTransport.prototype.connect = async function () {
@@ -65,6 +67,9 @@
     if (cmd === 'hello') return { ok: true, fw: '0.0.0-demo', build: 'demo00000', slot: 'A', freeMb: 49000, imageVersion: '0.0.0-demo', patchStateVersion: 3,
       fields: Object.keys(SCHEMA).filter(function (k) { return k !== 'sessionTempoBPM'; }) };   // demo leaves one out to show the greyed state
     if (cmd === 'update.chunk') return { ok: true, next: args.seq + 1 };
+    if (cmd === 'patch.get') { var v = {}; Object.keys(SCHEMA).forEach(function (k) { v[k] = SCHEMA[k].def; }); return { ok: true, values: v }; }
+    if (cmd === 'patch.put') return { ok: true, state: 'applying', skipped: [] };
+    if (cmd === 'status') return { ok: true, state: 'patch_saved' };
     return { ok: true };
   };
 
@@ -87,7 +92,7 @@
       $('c-transport').textContent = t.name;
       log('Connected: ' + t.name);
       var h = await t.request('hello'); hello = h;
-      deviceFields = h.fields ? new Set(h.fields) : null; renderParams();
+      deviceFields = h.fields ? new Set(h.fields) : null; renderParams(); loadFromUnit();
       $('d-fw').textContent = h.fw + (h.release != null ? ' (release ' + h.release + ')' : ''); $('d-psv').textContent = h.patchStateVersion != null ? 'v' + h.patchStateVersion : '–'; $('d-build').textContent = h.build; $('d-slot').textContent = h.slot;
       $('d-free').textContent = h.freeMb != null ? Math.round(h.freeMb / 1024) + ' GB' : '–';
       setMode(t instanceof DemoTransport ? 'demo' : 'on', t instanceof DemoTransport ? 'DEMO DEVICE' : 'CONNECTED');
@@ -245,7 +250,7 @@
       var li = document.createElement('li'); li.tabIndex = 0; li.setAttribute('role', 'option');
       li.setAttribute('aria-selected', i === cur ? 'true' : 'false'); li.className = edited(i) ? 'edited' : '';
       li.textContent = (i + 1) + '. ' + n;
-      li.onclick = function () { cur = i; renderList(); renderParams(); };
+      li.onclick = function () { cur = i; renderList(); renderParams(); loadFromUnit(); };
       li.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); li.onclick(); } };
       ol.appendChild(li);
     });
@@ -277,6 +282,19 @@
       root.appendChild(box);
     });
   }
+  /* With a unit connected, each patch is read from the unit when you open it, and SEND writes only the settings you
+     changed since then, so nothing you did not touch is overwritten. */
+  var baseline = {};
+  async function loadFromUnit() {
+    if (!transport || !deviceFields || !deviceFields.size) return;
+    var i = cur;
+    try {
+      var r = await transport.request('patch.get', { index: i });
+      Object.keys(r.values).forEach(function (k) { if (SCHEMA[k]) patches[i][k] = clamp(SCHEMA[k], r.values[k]); });
+      baseline[i] = Object.assign({}, patches[i]); persist();
+      if (i === cur) { renderList(); renderParams(); }
+    } catch (e) { baseline[i] = null; log('Patch ' + (i + 1) + ' not read from the unit: ' + e.message); }
+  }
   $('pt-reset').onclick = function () { if (!edited(cur) || confirm('Reset patch ' + (cur + 1) + ' (' + NAMES[cur] + ') to factory values?')) { patches[cur] = defaults(); persist(); renderList(); renderParams(); } };
   $('pt-export').onclick = function () {
     var blob = new Blob([JSON.stringify({ format: 'centrosome-patch', version: 3, index: cur + 1, name: NAMES[cur], values: patches[cur] }, null, 2)], { type: 'application/json' });
@@ -293,10 +311,25 @@
   };
   $('pt-send').onclick = async function () {
     if (!transport) return;
-    if (!confirm('Write patch ' + (cur + 1) + ' (' + NAMES[cur] + ') to the unit? It replaces what is saved there.')) return;
-    var vals = {}; Object.keys(patches[cur]).forEach(function (k) { if (!deviceFields || deviceFields.has(k)) vals[k] = patches[cur][k]; });
-    try { await transport.request('patch.put', { index: cur, patchStateVersion: hello ? hello.patchStateVersion : undefined, values: vals }); alert(mode === 'demo' ? 'Demo device: nothing was written.' : 'Sent to the unit.'); }
-    catch (e) { alert('Not sent: ' + e.message); }
+    if (!baseline[cur]) { alert('Read this patch from the unit first: select it again while connected.'); return; }
+    var vals = {}, n = 0;
+    Object.keys(patches[cur]).forEach(function (k) { if (deviceFields && deviceFields.has(k) && patches[cur][k] !== baseline[cur][k]) { vals[k] = patches[cur][k]; n++; } });
+    if (!n) { alert('Nothing changed since this patch was read from the unit.'); return; }
+    if (!confirm('Save ' + n + ' changed setting(s) to patch ' + (cur + 1) + ' (' + NAMES[cur] + ') on the unit?\nThe unit goes silent for a few seconds while it saves.')) return;
+    try {
+      var put = await transport.request('patch.put', { index: cur, patchStateVersion: hello ? hello.patchStateVersion : undefined, values: vals });
+      log('Saving ' + n + ' setting(s) to patch ' + (cur + 1) + '\u2026');
+      if (put.skipped && put.skipped.length) log('Not stored (older patch file on the unit): ' + put.skipped.join(', '));
+      var done = false;
+      for (var k = 0; k < 60 && !done; k++) {
+        await sleep(1000);
+        var st; try { st = await transport.request('status'); } catch (x) { continue; }
+        if (st.state === 'patch_saved') { done = true; baseline[cur] = Object.assign({}, patches[cur]); log('Patch ' + (cur + 1) + ' saved on the unit.'); }
+        else if (st.state === 'patch_failed') throw new Error(st.detail || 'the unit could not save it');
+      }
+      if (!done) throw new Error('no answer from the unit; check the patch on the instrument');
+      if (mode === 'demo') alert('Demo device: nothing was written.');
+    } catch (e) { alert('Not saved: ' + e.message); }
   };
 
   /* ---------- tabs, banner ---------- */
